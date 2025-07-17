@@ -19,7 +19,12 @@ export class SchedulerService {
   ) {}
 
   @Cron('*/30 * * * * *')
-  async handleJobUnit() {
+  async handleJobs() {
+    await this.unitJob(); //Process unit migrations every 30 seconds
+    // Aqui você pode chamar outros jobs, ex: await this.rentRollJob();
+  }
+
+  async unitJob() {
     this.logger.log(`UnitJob: Starting job to process unit migrations.`);
     const migrations = await this.migrationsService.findByStatusAndFiletype(
       'new',
@@ -59,9 +64,9 @@ export class SchedulerService {
           }
         }
         if (!csvContent) {
-            this.logger.error(
-              `UnitJob: Failed to decode file ${migration.filename} with all encodings.`,
-            );
+          this.logger.error(
+            `UnitJob: Failed to decode file ${migration.filename} with all encodings.`,
+          );
           throw new Error(
             'Erro ao decodificar o arquivo. Encoding não suportado.',
           );
@@ -119,14 +124,12 @@ export class SchedulerService {
 
 // Função utilitária para parsear o unitSize
 function parseUnitSize(unitSize: string): [number, number, number] {
-  // Remove tudo que não é número, x ou ponto, e normaliza para minúsculo
   const cleaned = unitSize
-    .replace(/[^0-9xX., ]+/g, '') // remove letras e símbolos, exceto x, ponto, vírgula e espaço
-    .replace(/,/g, '.') // troca vírgula por ponto (caso decimal)
-    .replace(/\s+/g, '') // remove todos os espaços
+    .replace(/[^0-9xX., ]+/g, '')
+    .replace(/,/g, '.')
+    .replace(/\s+/g, '')
     .toLowerCase();
 
-  // Procura padrão tipo 8x8x12 ou 8.5x10x12
   const match = cleaned.match(
     /(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/,
   );
@@ -134,13 +137,12 @@ function parseUnitSize(unitSize: string): [number, number, number] {
   return [parseFloat(match[1]), parseFloat(match[2]), parseFloat(match[3])];
 }
 
-// Função utilitária para parsear o CSV
 function parseCsv(content: string): Array<any> {
   try {
     return csvParse.parse(content, {
       columns: true,
       skip_empty_lines: true,
-      delimiter: ';', // ajuste se necessário
+      delimiter: ';',
       trim: true,
     });
   } catch (error) {
