@@ -177,10 +177,10 @@
     <column id="COL48" populated="true" UUID="de0a9f37-0a84-47d5-ad4f-3db886ee0218" autoIncrement="false" autoIncrementSequenceName="migrationsControl_endProcessing_seq" defaultValue="" name="endProcessing" nullable="1" physicalName="endProcessing" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="93" userDefinedTypeUUID="6497d8de-0e00-40d6-a42e-e2adca83be64" >
      <remarks></remarks>
     </column>
-    <column id="COL49" populated="true" UUID="952491a6-c081-4fd7-bbcc-ac0ed4dc69ac" autoIncrement="false" autoIncrementSequenceName="migrationsControl_status_seq" defaultValue="new" name="status" nullable="0" physicalName="status" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
+    <column id="COL49" populated="true" UUID="952491a6-c081-4fd7-bbcc-ac0ed4dc69ac" autoIncrement="false" autoIncrementSequenceName="migrationsControl_status_seq" defaultValue="&apos;new&apos;" name="status" nullable="0" physicalName="status" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
      <remarks></remarks>
     </column>
-    <column id="COL50" populated="true" UUID="4c9a9f3c-984f-421c-bb3d-f8dc0932e2c7" autoIncrement="false" autoIncrementSequenceName="migrationsControl_error_seq" defaultValue="" name="error" nullable="1" physicalName="error" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
+    <column id="COL50" populated="true" UUID="4c9a9f3c-984f-421c-bb3d-f8dc0932e2c7" autoIncrement="false" autoIncrementSequenceName="migrationsControl_msg_seq" defaultValue="" name="msg" nullable="1" physicalName="msg" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="12" userDefinedTypeUUID="831ac2d4-0e65-47ec-a0b7-62b7f6b8760a" >
      <remarks></remarks>
     </column>
     </folder>
@@ -189,7 +189,7 @@
     <folder id="FOLTAB432" populated="true" name="Imported Keys" physicalName="Imported Keys" type="2">
     </folder>
     <folder id="FOLTAB434" populated="true" name="Indices" physicalName="Indices" type="4">
-    <index id="IDX51" populated="true" UUID="5c365d13-3bac-4287-9f08-ef2d718b208d" clustered="false" name="migrationsControlId" physicalName="migrationsControlId" primaryKeyIndex="true" unique="false" >
+    <index id="IDX51" populated="true" UUID="5c365d13-3bac-4287-9f08-ef2d718b208d" clustered="false" name="migrationsControlId" physicalName="migrationscontrolid" primaryKeyIndex="true" unique="false" >
      <index-column id="IDC52" populated="true" UUID="6da53f1e-2b96-4382-b5d7-f0a4993b513d" ascendingOrDescending="UNSPECIFIED" column-ref="COL44" name="migrationsControlId" physicalName="migrationsControlId" />
     </index>
    </folder>
@@ -198,18 +198,18 @@
    <relationship id="REL53" populated="true" UUID="466d1fe4-b195-4947-b3ca-1940eed08c49" deferrability="7" deleteRule="3" fk-table-ref="TAB6" fkCardinality="7" identifying="false" name="facility_unit_fk" physicalName="facility_unit_fk" pk-table-ref="TAB1" pkCardinality="2" updateRule="3" >
     <column-mapping id="CMP54" populated="true" UUID="7fb01757-e96b-4b64-a9aa-c4eba5fef633" fk-column-ref="COL8" name="Column Mapping" physicalName="Column Mapping" pk-column-ref="COL2" />
    </relationship>
-   <relationship id="REL55" populated="true" UUID="6a2c5569-29e4-4458-9aba-ff6bee56d522" deferrability="7" deleteRule="3" fk-table-ref="TAB25" fkCardinality="7" identifying="false" name="unit_rentalContract_fk" physicalName="unit_rentalContract_fk" pk-table-ref="TAB6" pkCardinality="2" updateRule="3" >
+   <relationship id="REL55" populated="true" UUID="6a2c5569-29e4-4458-9aba-ff6bee56d522" deferrability="7" deleteRule="3" fk-table-ref="TAB25" fkCardinality="7" identifying="false" name="unit_rentalContract_fk" physicalName="unit_rentalcontract_fk" pk-table-ref="TAB6" pkCardinality="2" updateRule="3" >
     <column-mapping id="CMP56" populated="true" UUID="f4b25332-7282-45a8-b442-236dbc0ee5a0" fk-column-ref="COL27" name="Column Mapping" physicalName="Column Mapping" pk-column-ref="COL7" />
    </relationship>
-   <relationship id="REL57" populated="true" UUID="c7589e7a-7322-42a0-847e-47d0edbfdf67" deferrability="7" deleteRule="3" fk-table-ref="TAB25" fkCardinality="7" identifying="false" name="tenant_rentalContract_fk" physicalName="tenant_rentalContract_fk" pk-table-ref="TAB17" pkCardinality="2" updateRule="3" >
+   <relationship id="REL57" populated="true" UUID="c7589e7a-7322-42a0-847e-47d0edbfdf67" deferrability="7" deleteRule="3" fk-table-ref="TAB25" fkCardinality="7" identifying="false" name="tenant_rentalContract_fk" physicalName="tenant_rentalcontract_fk" pk-table-ref="TAB17" pkCardinality="2" updateRule="3" >
     <column-mapping id="CMP58" populated="true" UUID="8de942d4-d578-4f55-8dd7-e93320b10d7e" fk-column-ref="COL28" name="Column Mapping" physicalName="Column Mapping" pk-column-ref="COL18" />
    </relationship>
-   <relationship id="REL59" populated="true" UUID="fae91381-dc54-4f5e-bc94-3d721c24ca79" deferrability="7" deleteRule="3" fk-table-ref="TAB34" fkCardinality="7" identifying="true" name="rentalContract_rentalInvoice_fk" physicalName="rentalContract_rentalInvoice_fk" pk-table-ref="TAB25" pkCardinality="2" updateRule="3" >
+   <relationship id="REL59" populated="true" UUID="fae91381-dc54-4f5e-bc94-3d721c24ca79" deferrability="7" deleteRule="3" fk-table-ref="TAB34" fkCardinality="7" identifying="true" name="rentalContract_rentalInvoice_fk" physicalName="rentalcontract_rentalinvoice_fk" pk-table-ref="TAB25" pkCardinality="2" updateRule="3" >
     <column-mapping id="CMP60" populated="true" UUID="871d5b07-6d14-4181-bf6e-04491608ca6d" fk-column-ref="COL36" name="Column Mapping" physicalName="Column Mapping" pk-column-ref="COL26" />
    </relationship>
   </relationships>
  </target-database>
- <ddl-generator type="ca.sqlpower.architect.ddl.PostgresDDLGenerator" allow-connection="true" target-schema="public"> </ddl-generator>
+ <ddl-generator type="ca.sqlpower.architect.ddl.PostgresDDLGenerator" allow-connection="false" target-schema="public"> </ddl-generator>
  <liquibase-settings useSeparateChangeSets="false" generateId="false" idStart="1"/>
  <create-kettle-job-settings filePath="" jobName="" schemaName="" kettleJoinType="0" savingToFile="true" />
  <play-pen zoom="1.0" viewportX="0" viewportY="0" relationship-style="rectilinear" names-displayLogicalNames="true" showPrimaryTag="true" showForeignTag="true" showAlternateTag="true" columnVisibility="ALL" relationshipLabelVisibility="true">

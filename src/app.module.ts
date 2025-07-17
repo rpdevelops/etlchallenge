@@ -4,18 +4,25 @@ import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { FileModule } from './file/file.module';
-import { MigrationsModule } from './migrations/migrations.module';
-
+import { SupabaseService } from './supabase/supabase.service';
+import { ConfigModule } from '@nestjs/config';
+import { KnexService } from './knex/knex.service';
+import { DatabaseModule } from './database/database.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
+import { RepositoryModule } from './repository/repository.module';
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
     }),
     FileModule,
-    MigrationsModule,
+    DatabaseModule,
+    SchedulerModule,
+    RepositoryModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, SupabaseService, KnexService],
 })
 export class AppModule {}
