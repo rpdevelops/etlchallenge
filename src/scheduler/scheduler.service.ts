@@ -18,13 +18,15 @@ export class SchedulerService {
     private readonly unitService: UnitService,
   ) {}
 
-  @Cron('*/30 * * * * *') // a cada 30 segundos
- @Cron('*/30 * * * * *')
+  @Cron('*/30 * * * * *')
   async handleJobUnit() {
-    this.logger.log(`Starting job to process unit migrations.`);
-    const migrations = await this.migrationsService.findByStatusAndFiletype('new', 'unit');
+    this.logger.log(`UnitJob: Starting job to process unit migrations.`);
+    const migrations = await this.migrationsService.findByStatusAndFiletype(
+      'new',
+      'unit',
+    );
     if (migrations.length === 0) {
-      this.logger.log('No new unit migrations found.');
+      this.logger.log('UnitJob: No new unit migrations found.');
       return;
     }
     for (const migration of migrations) {
@@ -32,7 +34,7 @@ export class SchedulerService {
       const trx = await this.facilityService.getTransaction();
       try {
         this.logger.log(
-          `Processing migration: ${migration.filename} with ID: ${migration.migrationscontrolid}`,
+          `UnitJob: Processing migration: ${migration.filename} with ID: ${migration.migrationscontrolid}`,
         );
         await this.migrationsService.updateFieldsById(
           migration.migrationscontrolid,
@@ -40,7 +42,10 @@ export class SchedulerService {
         );
 
         // Download e parse do arquivo
-        const fileBuffer = await this.supabaseService.downloadFile('importedcsv', migration.filename);
+        const fileBuffer = await this.supabaseService.downloadFile(
+          'importedcsv',
+          migration.filename,
+        );
         const encodings = ['utf-8', 'latin1', 'ascii'];
         let csvContent: string | null = null;
         const arrayBuffer = await fileBuffer.arrayBuffer();
@@ -53,14 +58,27 @@ export class SchedulerService {
             csvContent = null;
           }
         }
-        if (!csvContent) throw new Error('Erro ao decodificar o arquivo. Encoding não suportado.');
+        if (!csvContent) {
+            this.logger.error(
+              `UnitJob: Failed to decode file ${migration.filename} with all encodings.`,
+            );
+          throw new Error(
+            'Erro ao decodificar o arquivo. Encoding não suportado.',
+          );
+        }
+
         const records = parseCsv(csvContent);
 
         // Facilities e units
-        const uniqueFacilities = Array.from(new Set(records.map((r) => r.facilityName)));
+        const uniqueFacilities = Array.from(
+          new Set(records.map((r) => r.facilityName)),
+        );
         for (const facilityName of uniqueFacilities) {
           // Passa a transação para o service!
-          const facility = await this.facilityService.createIfNotExists(facilityName, trx);
+          const facility = await this.facilityService.createIfNotExists(
+            facilityName,
+            trx,
+          );
           const units = records.filter((r) => r.facilityName === facilityName);
           for (const unit of units) {
             const { unitNumber, unitSize, unitType } = unit;
@@ -82,10 +100,14 @@ export class SchedulerService {
           migration.migrationscontrolid,
           { status: 'success', endprocessing: new Date().toISOString() },
         );
-        this.logger.log(`Successfully processed migration: ${migration.filename}`);
+        this.logger.log(
+          `UnitJob: Successfully processed migration: ${migration.filename}`,
+        );
       } catch (err) {
         await trx.rollback(); // ROLLBACK se deu erro
-        this.logger.error(`Error processing file ${migration.filename}: ${err}`);
+        this.logger.error(
+          `UnitJob: Error processing file ${migration.filename}: ${err}`,
+        );
         await this.migrationsService.updateFieldsById(
           migration.migrationscontrolid,
           { status: 'error', msg: String(err) },
@@ -100,12 +122,14 @@ function parseUnitSize(unitSize: string): [number, number, number] {
   // Remove tudo que não é número, x ou ponto, e normaliza para minúsculo
   const cleaned = unitSize
     .replace(/[^0-9xX., ]+/g, '') // remove letras e símbolos, exceto x, ponto, vírgula e espaço
-    .replace(/,/g, '.')           // troca vírgula por ponto (caso decimal)
-    .replace(/\s+/g, '')          // remove todos os espaços
+    .replace(/,/g, '.') // troca vírgula por ponto (caso decimal)
+    .replace(/\s+/g, '') // remove todos os espaços
     .toLowerCase();
 
   // Procura padrão tipo 8x8x12 ou 8.5x10x12
-  const match = cleaned.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
+  const match = cleaned.match(
+    /(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/,
+  );
   if (!match) return [0, 0, 0];
   return [parseFloat(match[1]), parseFloat(match[2]), parseFloat(match[3])];
 }

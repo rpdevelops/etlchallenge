@@ -4,7 +4,10 @@ import * as csvParse from 'csv-parse/sync';
 
 @Injectable()
 export class FileService {
-  validateUnitFile(file: Express.Multer.File): {
+  validateFile(
+    file: Express.Multer.File,
+    requiredHeaders: string[],
+  ): {
     success: boolean;
     message: string;
   } {
@@ -79,13 +82,6 @@ export class FileService {
       };
     }
 
-    // Verifica headers
-    const requiredHeaders = [
-      'facilityName',
-      'unitNumber',
-      'unitSize',
-      'unitType',
-    ];
     const fileHeaders = records.length > 0 ? Object.keys(records[0]) : [];
     const missingHeaders = requiredHeaders.filter(
       (h) => !fileHeaders.includes(h),

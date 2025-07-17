@@ -21,7 +21,13 @@ export class FileController {
   @Post('unit')
   @UseInterceptors(FileInterceptor('file'))
   async uploadUnitFile(@UploadedFile() file: Express.Multer.File) {
-    const validation = this.fileService.validateUnitFile(file);
+    const requiredHeaders = [
+      'facilityName',
+      'unitNumber',
+      'unitSize',
+      'unitType',
+    ];
+    const validation = this.fileService.validateFile(file, requiredHeaders);
     if (!validation.success) {
       throw new BadRequestException(validation.message);
     }
