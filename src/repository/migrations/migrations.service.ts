@@ -9,7 +9,8 @@ export class MigrationsService {
     return this.knexService
       .db('railway')
       .table('migrationscontrol')
-      .select('*');
+      .select('*')
+      .orderBy('importingdate', 'desc');
   }
 
   async updateFieldsById(
