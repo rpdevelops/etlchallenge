@@ -28,7 +28,6 @@ export class SchedulerService {
   async handleJobs() {
     await this.unitJob(); //Process unit migrations every 30 seconds
     await this.rentRollJob(); // Process rent roll migrations every 30 seconds
-    // Aqui você pode chamar outros jobs, ex: await this.rentRollJob();
   }
 
   async unitJob() {
@@ -42,17 +41,16 @@ export class SchedulerService {
       return;
     }
     for (const migration of migrations) {
+      let total = 0, inseridas = 0, ignoradas = 0, erros = 0;
+      const detalhes: string[] = [];
+      await this.migrationsService.updateFieldsById(
+        migration.migrationscontrolid,
+        { status: 'processing', startprocessing: new Date().toISOString() },
+      );
+
       // INÍCIO DA TRANSAÇÃO
       const trx = await this.facilityService.getTransaction();
       try {
-        this.logger.log(
-          `UnitJob: Processing migration: ${migration.filename} with ID: ${migration.migrationscontrolid}`,
-        );
-        await this.migrationsService.updateFieldsById(
-          migration.migrationscontrolid,
-          { status: 'processing', startprocessing: new Date().toISOString() },
-        );
-
         // Download e parse do arquivo
         const fileBuffer = await this.supabaseService.downloadFile(
           'importedcsv',
@@ -74,9 +72,7 @@ export class SchedulerService {
           this.logger.error(
             `UnitJob: Failed to decode file ${migration.filename} with all encodings.`,
           );
-          throw new Error(
-            'Erro ao decodificar o arquivo. Encoding não suportado.',
-          );
+          throw new Error('Error to decode file. Not supported encoding.');
         }
 
         const records = parseCsv(csvContent);
@@ -89,45 +85,99 @@ export class SchedulerService {
           // Passa a transação para o service!
           const facility = await this.facilityService.createIfNotExists(
             facilityName,
-            trx,
+            trx
           );
           const units = records.filter((r) => r.facilityName === facilityName);
-          for (const unit of units) {
-            const { unitNumber, unitSize, unitType } = unit;
-            const [unitwidth, unitlength, unitheight] = parseUnitSize(unitSize);
-            await this.unitService.createUnit({
-              facility_facilityid: facility.facilityid,
-              number: unitNumber,
-              unitwidth,
-              unitlength,
-              unitheight,
-              unittype: unitType,
-            });
+          for (const [idx, unit] of units.entries()) {
+            total++;
+            // Validação básica dos campos obrigatórios
+            const required = ['facilityName', 'unitNumber', 'unitSize', 'unitType'];
+            let missing = required.filter(
+              (key) => !unit[key] || String(unit[key]).trim() === '',
+            );
+            if (missing.length > 0) {
+              detalhes.push(
+                `Line ${idx + 2}: Missing Required Field(s): ${missing.join(', ')}`,
+              );
+              erros++;
+              continue;
+            }
+            // Parse unitSize
+            const [unitwidth, unitlength, unitheight] = parseUnitSize(unit.unitSize);
+            if (!unitwidth || !unitlength || !unitheight) {
+              detalhes.push(
+                `Line ${idx + 2}: Invalid unitSize format (${unit.unitSize})`,
+              );
+              erros++;
+              continue;
+            }
+            // Verifica duplicidade
+            const exists = await this.unitService.getUnitByFacilityAndNumber(
+              facility,
+              unit.unitNumber,
+            );
+            if (exists) {
+              detalhes.push(
+                `Line ${idx + 2}: Duplicated unit ignored (facility: ${facility.facilityid}, number: ${unit.unitNumber})`,
+              );
+              ignoradas++;
+              continue;
+            }
+            try {
+              await this.unitService.createUnit({
+                facility_facilityid: facility,
+                number: unit.unitNumber,
+                unitwidth,
+                unitlength,
+                unitheight,
+                unittype: unit.unitType,
+              }, trx); // Passe a transação!
+              inseridas++;
+              detalhes.push(`Line ${idx + 2}: Successfully processed.`);
+            } catch (err) {
+              detalhes.push(
+                `Line ${idx + 2}: Error inserting unit: ${err.message || err}`,
+              );
+              erros++;
+            }
           }
         }
 
-        await trx.commit(); // COMMIT se tudo deu certo
+        // Determina o status final conforme regras
+        let finalStatus = 'Success';
+        if (erros > 0 && ignoradas > 0) {
+          finalStatus = 'Processed With Ignored and Errors';
+        } else if (erros > 0) {
+          finalStatus = 'Processed With Errors';
+        } else if (ignoradas > 0) {
+          finalStatus = 'Processed With Ignored';
+        }
 
+        await trx.commit();
+
+        // Atualiza status para o resultado final
         await this.migrationsService.updateFieldsById(
           migration.migrationscontrolid,
-          { status: 'success', endprocessing: new Date().toISOString() },
+          {
+            status: finalStatus,
+            endprocessing: new Date().toISOString(),
+            msg: `Processed: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
+          },
         );
+
+        // Log detalhado
         this.logger.log(
-          `UnitJob: Successfully processed migration: ${migration.filename}`,
+          `UnitJob: ${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
         );
+        detalhes.forEach((msg) => this.logger.log(msg));
       } catch (err) {
-        await trx.rollback(); // ROLLBACK se deu erro
+        await trx.rollback();
         this.logger.error(
           `UnitJob: Error processing file ${migration.filename}: ${err}`,
         );
-        await this.migrationsService.updateFieldsById(
-          migration.migrationscontrolid,
-          { status: 'error', msg: String(err) },
-        );
       }
     }
-  }
-
+}
   async rentRollJob() {
   this.logger.log('RentRollJob: Starting the Rent Roll Migration Process.');
   const migrations = await this.migrationsService.findByStatusAndFiletype('new', 'rentRoll');
@@ -160,7 +210,7 @@ export class SchedulerService {
           csvContent = null;
         }
       }
-      if (!csvContent) throw new Error('Erro ao decodificar o arquivo. Encoding não suportado.');
+      if (!csvContent) throw new Error('Error to decode file. Not supported encoding.');
       const records = parseCsv(csvContent);
 
       for (const [idx, row] of records.entries()) {
@@ -168,7 +218,7 @@ export class SchedulerService {
         // Validação básica
         const validation = validateRentRollRow(row);
         if (!validation.success) {
-          detalhes.push(`Linha ${idx + 2}: Erro de validação: ${validation.message}`);
+          detalhes.push(`Line ${idx + 2}: Erro of validation: ${validation.message}`);
           erros++;
           continue;
         }
@@ -179,7 +229,7 @@ export class SchedulerService {
           // 1. Buscar unitId pelo facilityName + unitNumber
           const facility = await trx('facility').where({ name: row.facilityName }).first();
           if (!facility) {
-            detalhes.push(`Linha ${idx + 2}: Facility não encontrada (${row.facilityName})`);
+            detalhes.push(`Line ${idx + 2}: Facility  not found (${row.facilityName})`);
             ignoradas++;
             await trx.rollback();
             continue;
@@ -188,7 +238,7 @@ export class SchedulerService {
             .where({ facility_facilityid: facility.facilityid, number: row.unitNumber })
             .first();
           if (!unit) {
-            detalhes.push(`Linha ${idx + 2}: Unit não encontrada (${row.unitNumber})`);
+            detalhes.push(`Line ${idx + 2}: Unit not found (${row.unitNumber})`);
             ignoradas++;
             await trx.rollback();
             continue;
@@ -212,7 +262,7 @@ export class SchedulerService {
             trx,
           );
           if (existingContract) {
-            detalhes.push(`Linha ${idx + 2}: Contrato duplicado ignorado.`);
+            detalhes.push(`Line ${idx + 2}: Duplicated Contract Ignored.`);
             ignoradas++;
             await trx.rollback();
             continue;
@@ -221,9 +271,11 @@ export class SchedulerService {
           // 4. Inserir rentalContract
           const rentalContractId = await this.rentalContractService.createRentalContract({
             unit_unitid: unit.unitid,
-            tenant_tenantid: tenant,
+            tenant_tenantid: tenant, // garanta que é só o id numérico
             startdate: new Date(row.rentStartDate),
-            enddate: new Date(row.rentEndDate),
+            enddate: row.rentEndDate && String(row.rentEndDate).trim() !== ''
+              ? new Date(row.rentEndDate)
+              : null,
             currentamountowed: parseFloat(row.currentRentOwed),
           }, trx);
 
@@ -235,54 +287,73 @@ export class SchedulerService {
             invoicebalance: parseFloat(row.currentRentOwed),
           }, trx);
 
+          // Atualizar o campo monthlyrent da unit
+          await this.unitService.updateUnit(
+            unit.facility_facilityid,
+            unit.number,
+            { monthlyrent: parseFloat(row.monthlyRent) }
+          );
+
           await trx.commit();
           inseridas++;
-          detalhes.push(`Linha ${idx + 2}: Processada com sucesso.`);
+          detalhes.push(`Line ${idx + 2}: Successfuly processed.`);
         } catch (err) {
           await trx.rollback();
-          detalhes.push(`Linha ${idx + 2}: Erro: ${err.message || err}`);
+          detalhes.push(`Line ${idx + 2}: Error: ${err.message || err}`);
           erros++;
         }
       }
 
-      // Atualiza status para processed
+      // Determina o status final conforme regras
+      let finalStatus = 'Success';
+      if (erros > 0 && ignoradas > 0) {
+        finalStatus = 'Processed With Ignored and Errors';
+      } else if (erros > 0) {
+        finalStatus = 'Processed With Errors';
+      } else if (ignoradas > 0) {
+        finalStatus = 'Processed With Ignored';
+      }
+
+      // Atualiza status para o resultado final
       await this.migrationsService.updateFieldsById(migration.migrationscontrolid, {
-        status: 'processed',
+        status: finalStatus,
         endprocessing: new Date().toISOString(),
-        msg: `Processadas: ${inseridas}, Ignoradas: ${ignoradas}, Erros: ${erros}`,
+        msg: `Processed: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
       });
 
       // Log detalhado
-      this.logger.log(`RentRollJob: ${migration.filename} - Total: ${total}, Inseridas: ${inseridas}, Ignoradas: ${ignoradas}, Erros: ${erros}`);
+      this.logger.log(`RentRollJob: ${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`);
       detalhes.forEach((msg) => this.logger.log(msg));
     } catch (err) {
       await this.migrationsService.updateFieldsById(migration.migrationscontrolid, {
         status: 'error',
         msg: String(err),
       });
-      this.logger.error(`RentRollJob: Erro ao processar ${migration.filename}: ${err}`);
+      this.logger.error(`RentRollJob: Error to process ${migration.filename}: ${err}`);
     }
   }
 }
 }
+
 // Função de validação básica para cada linha do rentroll
 function validateRentRollRow(row: any): { success: boolean; message?: string } {
   const required = [
     'facilityName', 'unitNumber', 'firstName', 'lastName', 'email',
-    'rentStartDate', 'rentEndDate', 'monthlyRent', 'currentRentOwed', 'currentRentOwedDueDate'
+    'rentStartDate', 'monthlyRent', 'currentRentOwed', 'currentRentOwedDueDate'
+    // Remova 'rentEndDate' dos obrigatórios!
   ];
   for (const key of required) {
     if (!row[key] || String(row[key]).trim() === '') {
-      return { success: false, message: `Campo obrigatório ausente: ${key}` };
+      return { success: false, message: `Missing Required Field: ${key}` };
     }
   }
   // Datas válidas
-  if (isNaN(Date.parse(row.rentStartDate))) return { success: false, message: 'rentStartDate inválido' };
-  if (isNaN(Date.parse(row.rentEndDate))) return { success: false, message: 'rentEndDate inválido' };
-  if (isNaN(Date.parse(row.currentRentOwedDueDate))) return { success: false, message: 'currentRentOwedDueDate inválido' };
+  if (isNaN(Date.parse(row.rentStartDate))) return { success: false, message: 'rentStartDate invalid' };
+  if (row.rentEndDate && isNaN(Date.parse(row.rentEndDate))) return { success: false, message: 'rentEndDate invalid' };
+  if (isNaN(Date.parse(row.currentRentOwedDueDate))) return { success: false, message: 'currentRentOwedDueDate invalid' };
   // Números positivos
-  if (Number(row.monthlyRent) < 0) return { success: false, message: 'monthlyRent negativo' };
-  if (Number(row.currentRentOwed) < 0) return { success: false, message: 'currentRentOwed negativo' };
+  if (Number(row.monthlyRent) < 0) return { success: false, message: 'monthlyRent negative' };
+  if (Number(row.currentRentOwed) < 0) return { success: false, message: 'currentRentOwed negative' };
   return { success: true };
 }
 // Função utilitária para parsear o unitSize
@@ -309,6 +380,6 @@ function parseCsv(content: string): Array<any> {
       trim: true,
     });
   } catch (error) {
-    throw new Error('Erro ao ler o arquivo CSV: ' + error);
+    throw new Error('Erro to read CSV file: ' + error);
   }
 }

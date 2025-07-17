@@ -20,7 +20,8 @@ export class FacilityService {
         .transacting(trx)
         .returning('facilityid');
       facility = { facilityid: id, name };
+      return id.facilityid;
     }
-    return facility;
+    return facility.facilityid;
   }
 }

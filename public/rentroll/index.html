@@ -146,7 +146,7 @@
   <script>
     async function carregarMigrations() {
       try {
-        const response = await fetch('/api/get-all-migrations');
+        const response = await fetch('/api/get-migrations-rentroll');
         const data = await response.json();
         const tbody = document.querySelector('#migrationsTable tbody');
         tbody.innerHTML = '';

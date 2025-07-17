@@ -16,7 +16,7 @@ export class RentalContractService {
     unit_unitid: number;
     tenant_tenantid: number;
     startdate: Date;
-    enddate: Date;
+    enddate: Date | null;
     currentamountowed: number;
   }, trx?) {
     const [rentalContractId] = await this.knexService.db('rentalcontract')
