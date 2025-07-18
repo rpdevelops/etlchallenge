@@ -14,7 +14,9 @@ export class FileService {
     if (!file) {
       return { success: false, message: 'File not sent.' };
     }
-
+    if (!this.isCSVFile(file)) {
+      return { success: false, message: 'Invalid file type. CSV required.' };
+    }
     // verify if the file is empty
     if (!file.buffer || file.buffer.length === 0) {
       return { success: false, message: 'File is empty.' };
@@ -112,5 +114,16 @@ export class FileService {
   ): boolean {
     const matches = content.match(new RegExp(`\\${quoteChar}`, 'g')) || [];
     return matches.length % 2 === 0;
+  }
+  private isCSVFile(file: Express.Multer.File): boolean {
+    const validMimeTypes = ['text/csv', 'application/vnd.ms-excel'];
+    const validExtensions = ['.csv'];
+
+    const hasValidMime = validMimeTypes.includes(file.mimetype);
+    const hasValidExtension = validExtensions.some((ext) =>
+      file.originalname.toLowerCase().endsWith(ext),
+    );
+
+    return hasValidMime || hasValidExtension;
   }
 }
