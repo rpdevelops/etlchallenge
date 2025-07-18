@@ -9,6 +9,7 @@ import * as iconv from 'iconv-lite';
 import { TenantService } from '../repository/tenant/tenant.service';
 import { RentalContractService } from '../repository/rentalcontract/rentalcontract.service';
 import { RentalInvoiceService } from '../repository/rentalinvoice/rentalinvoice.service';
+import { LogsService } from '../repository/logs/logs.service';
 
 @Injectable()
 export class SchedulerService {
@@ -22,6 +23,7 @@ export class SchedulerService {
     private readonly tenantService: TenantService,
     private readonly rentalContractService: RentalContractService,
     private readonly rentalInvoiceService: RentalInvoiceService,
+    private readonly logsService: LogsService,
   ) {}
 
   @Cron('*/30 * * * * *')
@@ -32,12 +34,15 @@ export class SchedulerService {
 
   async unitJob() {
     this.logger.log(`UnitJob: Starting job to process unit migrations.`);
+    await this.logsService.createLog('info', 'UnitJob', 'Starting job to process unit migrations.');
+
     const migrations = await this.migrationsService.findByStatusAndFiletype(
       'new',
       'unit',
     );
     if (migrations.length === 0) {
       this.logger.log('UnitJob: No new unit migrations found.');
+      await this.logsService.createLog('info', 'UnitJob', 'No new unit migrations found.');
       return;
     }
     for (const migration of migrations) {
@@ -72,6 +77,7 @@ export class SchedulerService {
           this.logger.error(
             `UnitJob: Failed to decode file ${migration.filename} with all encodings.`,
           );
+          await this.logsService.createLog('error', 'UnitJob', `Failed to decode file ${migration.filename} with all encodings.`);
           throw new Error('Error to decode file. Not supported encoding.');
         }
 
@@ -169,20 +175,37 @@ export class SchedulerService {
         this.logger.log(
           `UnitJob: ${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
         );
-        detalhes.forEach((msg) => this.logger.log(msg));
+        await this.logsService.createLog(
+          'info',
+          'UnitJob',
+          `${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
+        );
+
+        detalhes.forEach(async (msg) => {
+          this.logger.log(msg);
+          await this.logsService.createLog('info', 'UnitJob', msg);
+        });
       } catch (err) {
         await trx.rollback();
         this.logger.error(
           `UnitJob: Error processing file ${migration.filename}: ${err}`,
         );
+        await this.logsService.createLog(
+          'error',
+          'UnitJob',
+          `Error processing file ${migration.filename}: ${err}`,
+        );
       }
     }
-}
+  }
   async rentRollJob() {
   this.logger.log('RentRollJob: Starting the Rent Roll Migration Process.');
+  await this.logsService.createLog('info', 'RentRollJob', 'Starting the Rent Roll Migration Process.');
+
   const migrations = await this.migrationsService.findByStatusAndFiletype('new', 'rentRoll');
   if (migrations.length === 0) {
     this.logger.log('RentRollJob: No new rentRoll migrations found.');
+    await this.logsService.createLog('info', 'RentRollJob', 'No new rentRoll migrations found.');
     return;
   }
 
@@ -323,16 +346,31 @@ export class SchedulerService {
 
       // Log detalhado
       this.logger.log(`RentRollJob: ${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`);
-      detalhes.forEach((msg) => this.logger.log(msg));
+      await this.logsService.createLog(
+        'info',
+        'RentRollJob',
+        `${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
+      );
+
+      detalhes.forEach(async (msg) => {
+        this.logger.log(msg);
+        await this.logsService.createLog('info', 'RentRollJob', msg);
+      });
     } catch (err) {
       await this.migrationsService.updateFieldsById(migration.migrationscontrolid, {
         status: 'error',
         msg: String(err),
       });
       this.logger.error(`RentRollJob: Error to process ${migration.filename}: ${err}`);
+      await this.logsService.createLog(
+        'error',
+        'RentRollJob',
+        `Error to process ${migration.filename}: ${err}`,
+      );
     }
   }
 }
+
 }
 
 // Função de validação básica para cada linha do rentroll

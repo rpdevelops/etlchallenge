@@ -26,6 +26,7 @@ import { LogsService } from './logs/logs.service';
     TenantService,
     RentalContractService,
     RentalInvoiceService,
+    LogsService
   ],
 })
 export class RepositoryModule {}
