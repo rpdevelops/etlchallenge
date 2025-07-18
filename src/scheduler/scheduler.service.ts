@@ -34,13 +34,13 @@ export class SchedulerService {
 
   private async createLogApi(level: string, context: string, message: string) {
     try {
-      await fetch('http://localhost:3000/api/logs', {
+      await fetch('https://etlchallenge-production.up.railway.app/api/logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ level, context, message }),
       });
     } catch (err) {
-      this.logger.error(`Erro ao chamar API de logs: ${err?.message || err}`);
+      this.logger.error(`Error to Call Logs Api: ${err?.message || err}`);
     }
   }
 

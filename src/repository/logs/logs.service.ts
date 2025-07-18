@@ -12,11 +12,13 @@ export class LogsService {
       `Creating log with RAW: ${level} - ${context} - ${message}`,
     );
     try {
-      await this.knexService.db.raw(
-        `INSERT INTO logs (level, context, message, createdat) VALUES (?, ?, ?, ?)`,
-        [level, context, message, new Date()],
-      );
-      this.logger.log(`Log inserted with RAW successfully: ${message}`);
+      await this.knexService.db('logs').insert({
+        level,
+        context,
+        message,
+        createdat: new Date(),
+      });
+      this.logger.log(`Log inserted successfully: ${message}`);
     } catch (err) {
       this.logger.error(`Error inserting log with RAW: ${err?.message || err}`);
     }
