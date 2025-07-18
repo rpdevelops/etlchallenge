@@ -68,4 +68,8 @@ export class UnitService {
     if (trx) query = query.transacting(trx);
     return query.first();
   }
+
+  async getAllUnits() {
+    return this.knexService.db('unit').select('*').orderBy('unitid', 'desc');
+  }
 }

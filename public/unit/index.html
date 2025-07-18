@@ -102,7 +102,7 @@
 <body>
   <div class="container">
     <h1 style="text-align: center;">ETL Challenge</h1>
-        <div class="menu-container">
+ <div class="menu-container">
       <a href="/"><button class="btn">Home</button></a>
       <div class="dropdown">
         <button class="dropbtn">Upload Files ▼</button>
@@ -110,8 +110,18 @@
           <a href="/unit">Unit</a>
           <a href="/rentroll">RentRoll</a>
         </div>
-        <a href="/logs"><button class="btn">Logs</button></a>
       </div>
+      <div class="dropdown">
+        <button class="dropbtn">Data ▼</button>
+        <div class="dropdown-content">
+          <a href="/data/unit">Units</a>
+          <a href="/data/facility">Facilities</a>
+          <a href="/data/rentalcontract">Rental Contracts</a>
+          <a href="/data/rentalinvoice">Rental Invoices</a>
+          <a href="/data/tenant">Tenants</a>
+        </div>
+      </div>
+      <a href="/logs"><button class="btn">Logs</button></a>
     </div>
     <form id="uploadForm" class="info" enctype="multipart/form-data">
       <h2 style="text-align: center;">Unit Upload</h1>
@@ -138,7 +148,7 @@
           </tr>
         </thead>
         <tbody>
-          <!-- Dados serão inseridos aqui -->
+          <!-- to insert data here -->
         </tbody>
       </table>
     </div>
@@ -199,7 +209,7 @@
         const result = await response.json();
         if (response.ok) {
           alert(result.message);
-          carregarMigrations(); // Atualiza a tabela após upload
+          carregarMigrations(); // update the table after upload
         } else {
           alert(`Erro: ${result.message}`);
         }

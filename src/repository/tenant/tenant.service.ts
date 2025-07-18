@@ -35,4 +35,8 @@ export class TenantService {
     }
     return tenant.tenantid;
   }
+
+  async getAllTenants() {
+    return this.knexService.db('tenant').select('*').orderBy('tenantid', 'desc');
+  }
 }

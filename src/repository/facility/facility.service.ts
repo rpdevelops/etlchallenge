@@ -24,4 +24,8 @@ export class FacilityService {
     }
     return facility.facilityid;
   }
+
+  async getAllFacilities() {
+    return this.knexService.db('facility').select('*').orderBy('facilityid', 'desc');
+  }
 }

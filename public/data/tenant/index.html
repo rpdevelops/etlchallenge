@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ETL Challenge</title>
+    <title>ETL Challenge - Tenants</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -102,7 +102,7 @@
   </head>
   <body>
     <h1 style="text-align: center">ETL Challenge</h1>
-    <div class="menu-container">
+ <div class="menu-container">
       <a href="/"><button class="btn">Home</button></a>
       <div class="dropdown">
         <button class="dropbtn">Upload Files ▼</button>
@@ -124,21 +124,17 @@
       <a href="/logs"><button class="btn">Logs</button></a>
     </div>
     <div class="info">
-      <h2>Informations</h2>
-      <p>All the informations about processing will be shown here.</p>
-      <p>The new files will be processed every minute.</p>
+      <h2>Tenants</h2>
       <button id="refreshTableBtn" type="button">Refresh Table</button>
-      <table id="migrationsTable">
+      <table id="tenantTable">
         <thead>
           <tr>
             <th>ID</th>
-            <th>File Name</th>
-            <th>Imported Time</th>
-            <th>Start Processing</th>
-            <th>End Processing</th>
-            <th>Status</th>
-            <th>Message</th>
-            <th>File Type</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            
           </tr>
         </thead>
         <tbody>
@@ -148,44 +144,41 @@
     </div>
 
     <script>
-      async function carregarMigrations() {
+      async function carregarTenants() {
         try {
-          const response = await fetch('/api/get-all-migrations');
+          const response = await fetch('/api/entity/tenant');
           const data = await response.json();
-          const tbody = document.querySelector('#migrationsTable tbody');
+          const tbody = document.querySelector('#tenantTable tbody');
           tbody.innerHTML = '';
 
           if (Array.isArray(data) && data.length > 0) {
             data.forEach((item) => {
               const tr = document.createElement('tr');
               tr.innerHTML = `
-              <td>${item.migrationscontrolid}</td>
-              <td>${item.filename}</td>
-              <td>${item.importingdate ? new Date(item.importingdate).toLocaleString() : ''}</td>
-              <td>${item.startprocessing ? new Date(item.startprocessing).toLocaleString() : ''}</td>
-              <td>${item.endprocessing ? new Date(item.endprocessing).toLocaleString() : ''}</td>
-              <td>${item.status}</td>
-              <td>${item.msg ?? ''}</td>
-              <td>${item.filetype ?? ''}</td>
-            `;
+                <td>${item.tenantid}</td>
+                <td>${item.firstname}</td>
+                <td>${item.lastname}</td>
+                <td>${item.email}</td>
+                <td>${item.phone}</td>
+              `;
               tbody.appendChild(tr);
             });
           } else {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td colspan="8">No registries found.</td>`;
+            tr.innerHTML = `<td colspan="5">No registries found.</td>`;
             tbody.appendChild(tr);
           }
         } catch (error) {
-          const tbody = document.querySelector('#migrationsTable tbody');
-          tbody.innerHTML = `<tr><td colspan="8">Erro to load files.</td></tr>`;
+          const tbody = document.querySelector('#tenantTable tbody');
+          tbody.innerHTML = `<tr><td colspan="5">Erro to load tenants.</td></tr>`;
         }
       }
 
       document
         .getElementById('refreshTableBtn')
-        .addEventListener('click', carregarMigrations);
+        .addEventListener('click', carregarTenants);
 
-      window.onload = carregarMigrations;
+      window.onload = carregarTenants;
     </script>
   </body>
 </html>

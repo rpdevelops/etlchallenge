@@ -25,4 +25,8 @@ export class RentalContractService {
       .returning('rentalcontractid');
     return rentalContractId.rentalcontractid;
   }
+
+  async getAllRentalContracts() {
+    return this.knexService.db('rentalcontract').select('*').orderBy('rentalcontractid', 'desc');
+  }
 }

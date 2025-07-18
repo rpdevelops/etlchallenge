@@ -15,4 +15,8 @@ export class RentalInvoiceService {
       .insert(data)
       .transacting(trx);
   }
+
+  async getAllRentalInvoices() {
+    return this.knexService.db('rentalinvoice').select('*').orderBy('rentalinvoiceid', 'desc');
+  }
 }
