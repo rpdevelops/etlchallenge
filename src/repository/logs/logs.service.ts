@@ -8,16 +8,17 @@ export class LogsService {
   constructor(private readonly knexService: KnexService) {}
 
   async createLog(level: string, context: string, message: string) {
-    this.logger.log(`Creating log: ${level} - ${context} - ${message}`);
+    this.logger.log(
+      `Creating log with RAW: ${level} - ${context} - ${message}`,
+    );
     try {
-      await this.knexService.db('logs').insert({
-        level,
-        context,
-        message,
-        createdat: new Date(),
-      });
+      await this.knexService.db.raw(
+        `INSERT INTO logs (level, context, message, createdat) VALUES (?, ?, ?, ?)`,
+        [level, context, message, new Date()],
+      );
+      this.logger.log(`Log inserted with RAW successfully: ${message}`);
     } catch (err) {
-      this.logger.error(`Error inserting log on database: ${err?.message || err}`);
+      this.logger.error(`Error inserting log with RAW: ${err?.message || err}`);
     }
   }
 
@@ -37,7 +38,11 @@ export class LogsService {
     level,
     context,
     hours,
-  }: { level?: string; context?: string; hours?: number }) {
+  }: {
+    level?: string;
+    context?: string;
+    hours?: number;
+  }) {
     let query = this.knexService.db('logs');
     if (level) query = query.where('level', level);
     if (context) query = query.where('context', context);
