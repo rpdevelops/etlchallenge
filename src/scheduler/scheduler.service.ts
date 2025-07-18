@@ -124,7 +124,7 @@ export class SchedulerService {
             );
             if (exists) {
               detalhes.push(
-                `Line ${idx + 2}: Duplicated unit ignored (facility: ${facility.facilityid}, number: ${unit.unitNumber})`,
+                `Line ${idx + 2}: Duplicated unit ignored (facility: ${facility}, number: ${unit.unitNumber})`,
               );
               ignoradas++;
               continue;

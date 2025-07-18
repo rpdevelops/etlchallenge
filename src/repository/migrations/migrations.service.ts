@@ -35,10 +35,10 @@ export class MigrationsService {
   async findByStatusAndFiletype(status?: string, filetype?: string) {
     let query = this.knexService.db('migrationscontrol').select('*');
     if (status) {
-      query = query.where('status', status);
+      query = query.where('status', status).orderBy('importingdate', 'desc');
     }
     if (filetype) {
-      query = query.where('filetype', filetype);
+      query = query.where('filetype', filetype).orderBy('importingdate', 'desc');
     }
     return query;
   }

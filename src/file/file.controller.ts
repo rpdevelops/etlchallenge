@@ -10,6 +10,13 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { SupabaseService } from '../supabase/supabase.service';
 import { MigrationsService } from '../repository/migrations/migrations.service';
 
+function sanitizeFilename(filename: string): string {
+  return filename
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9._-]/g, '');
+}
+
 @Controller('file')
 export class FileController {
   constructor(
@@ -32,11 +39,13 @@ export class FileController {
       throw new BadRequestException(validation.message);
     }
 
+    const cleanName = sanitizeFilename(file.originalname);
+
     // Upload para o Supabase Storage
     try {
       await this.supabaseService.uploadFile(
-        'importedcsv', // bucket
-        file.originalname, // path dentro do bucket
+        'importedcsv',
+        cleanName,
         file.buffer,
         file.mimetype,
       );
@@ -49,7 +58,7 @@ export class FileController {
     // Grava na tabela migrationsControl usando o service
     try {
       await this.migrationsService.createMigrationControl({
-        filename: file.originalname,
+        filename: cleanName,
         filetype: 'unit',
       });
     } catch (err) {
@@ -61,6 +70,7 @@ export class FileController {
 
     return { message: 'Arquivo importado com sucesso!' };
   }
+
   @Post('rentroll')
   @UseInterceptors(FileInterceptor('file'))
   async uploadRentRollFile(@UploadedFile() file: Express.Multer.File) {
@@ -82,11 +92,13 @@ export class FileController {
       throw new BadRequestException(validation.message);
     }
 
+    const cleanName = sanitizeFilename(file.originalname);
+
     // Upload para o Supabase Storage
     try {
       await this.supabaseService.uploadFile(
         'importedcsv',
-        file.originalname,
+        cleanName,
         file.buffer,
         file.mimetype,
       );
@@ -99,7 +111,7 @@ export class FileController {
     // Grava na tabela migrationsControl usando o service
     try {
       await this.migrationsService.createMigrationControl({
-        filename: file.originalname,
+        filename: cleanName,
         filetype: 'rentRoll',
       });
     } catch (err) {
