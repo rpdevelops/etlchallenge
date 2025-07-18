@@ -51,7 +51,7 @@ export class FileController {
       );
     } catch (err: any) {
       throw new BadRequestException(
-        'Erro ao salvar arquivo no Supabase Storage: ' + (err?.message || err),
+        'Error to save file on Storage: ' + (err?.message || err),
       );
     }
 
@@ -62,13 +62,13 @@ export class FileController {
         filetype: 'unit',
       });
     } catch (err) {
-      console.error('Erro ao registrar na tabela migrationsControl:', err);
+      console.error('Error to register in migrationscontrol table:', err);
       throw new BadRequestException(
-        'Arquivo salvo no storage, mas não foi possível registrar na tabela migrationsControl.',
+        'File saved on Storage, but could not register in migrationsControl table.',
       );
     }
 
-    return { message: 'Arquivo importado com sucesso!' };
+    return { message: 'File Imported Successfuly!' };
   }
 
   @Post('rentroll')
@@ -104,7 +104,7 @@ export class FileController {
       );
     } catch (err: any) {
       throw new BadRequestException(
-        'Erro ao salvar arquivo no Supabase Storage: ' + (err?.message || err),
+        'Error to save file on Storage: ' + (err?.message || err),
       );
     }
 
@@ -115,12 +115,12 @@ export class FileController {
         filetype: 'rentRoll',
       });
     } catch (err) {
-      console.error('Erro ao registrar na tabela migrationsControl:', err);
+      console.error('Error to register in migrationscontrol table:', err);
       throw new BadRequestException(
-        'Arquivo salvo no storage, mas não foi possível registrar na tabela migrationsControl.',
+        'File saved on Storage, but could not register in migrationsControl table.',
       );
     }
 
-    return { message: 'Arquivo importado com sucesso!' };
+    return { message: 'File Imported Successfuly!' };
   }
 }

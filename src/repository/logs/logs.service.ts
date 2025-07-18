@@ -1,17 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { KnexService } from '../../knex/knex.service';
 
 @Injectable()
 export class LogsService {
+  private readonly logger = new Logger(LogsService.name);
+
   constructor(private readonly knexService: KnexService) {}
 
   async createLog(level: string, context: string, message: string) {
-    await this.knexService.db('logs').insert({
-      level,
-      context,
-      message,
-      createdat: new Date(),
-    });
+    try {
+      await this.knexService.db('logs').insert({
+        level,
+        context,
+        message,
+        createdat: new Date(),
+      });
+    } catch (err) {
+      this.logger.error(`Error inserting log on database: ${err?.message || err}`);
+    }
   }
 
   async getAllLogs() {
