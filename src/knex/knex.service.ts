@@ -13,7 +13,7 @@ export class KnexService {
       pool: {
         min: 2,
         max: 5,
-        idleTimeoutMillis: 10000, // libera conexões ociosas após 10s
+        idleTimeoutMillis: 10000, // free connections after 10s
         createTimeoutMillis: 30000,
         acquireTimeoutMillis: 30000,
       },

@@ -21,7 +21,7 @@ export class FileService {
     }
 
     // try to decode the file with multiple encodings
-    const encodings = ['utf-8', 'latin1', 'ascii'];
+    const encodings = ['utf-8', 'latin1', 'ascii','windows-1252'];
     let content: string | null = null;
 
     for (const encoding of encodings) {
@@ -44,6 +44,8 @@ export class FileService {
     let records: Record<string, any>[];
     let headerLength = 0; // variable to store the number of columns in the header
     try {
+      const detectedDelimiter = content.includes(';') ? ';' : ',';
+      const detectedQuote = content.includes('"') ? '"' : "'";
       records = csvParse.parse(content, {
         columns: (header) => {
           // Limpa colunas vazias no header
@@ -52,7 +54,9 @@ export class FileService {
           return cleanedHeader;
         },
         skip_empty_lines: true,
-        delimiter: ';', // define the delimiter as semicolon
+        relax_quotes: true,
+        quote: detectedQuote,
+        delimiter: detectedDelimiter, // define the delimiter based on the content
         on_record: (record) => {
           // limita the number of columns in each record to the header length
           const limitedRecord = Object.fromEntries(

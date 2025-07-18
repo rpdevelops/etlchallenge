@@ -75,7 +75,7 @@ export class SchedulerService {
           'importedcsv',
           migration.filename,
         );
-        const encodings = ['utf-8', 'latin1', 'ascii'];
+        const encodings = ['utf-8', 'latin1', 'ascii','windows-1252'];
         let csvContent: string | null = null;
         const arrayBuffer = await fileBuffer.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
@@ -236,7 +236,7 @@ export class SchedulerService {
       try {
         // Download and parse of file
         const fileBuffer = await this.supabaseService.downloadFile('importedcsv', migration.filename);
-        const encodings = ['utf-8', 'latin1', 'ascii'];
+        const encodings = ['utf-8', 'latin1', 'ascii','windows-1252'];
         let csvContent: string | null = null;
         const arrayBuffer = await fileBuffer.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
@@ -422,11 +422,15 @@ function parseUnitSize(unitSize: string): [number, number, number] {
 }
 // Function to parse CSV content
 function parseCsv(content: string): Array<any> {
+  const detectedDelimiter = content.includes(';') ? ';' : ',';
+  const detectedQuote = content.includes('"') ? '"' : "'";
   try {
     return csvParse.parse(content, {
       columns: true,
       skip_empty_lines: true,
-      delimiter: ';',
+      quote: detectedQuote,
+      relax_quotes: true,
+      delimiter: detectedDelimiter,
       trim: true,
     });
   } catch (error) {
