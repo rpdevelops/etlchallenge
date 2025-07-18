@@ -26,7 +26,7 @@ export class SchedulerService {
     private readonly logsService: LogsService,
   ) {}
 
-  @Cron('*/30 * * * * *')
+  @Cron('*/60 * * * * *')
   async handleJobs() {
     await this.unitJob();
     await this.rentRollJob();
