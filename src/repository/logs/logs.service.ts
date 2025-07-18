@@ -8,6 +8,7 @@ export class LogsService {
   constructor(private readonly knexService: KnexService) {}
 
   async createLog(level: string, context: string, message: string) {
+    this.logger.log(`Creating log: ${level} - ${context} - ${message}`);
     try {
       await this.knexService.db('logs').insert({
         level,
