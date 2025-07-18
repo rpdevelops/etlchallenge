@@ -21,7 +21,7 @@ export class FileService {
     }
 
     // try to decode the file with multiple encodings
-    const encodings = ['utf-8', 'latin1', 'ascii','windows-1252'];
+    const encodings = ['utf-8', 'latin1', 'ascii', 'windows-1252'];
     let content: string | null = null;
 
     for (const encoding of encodings) {
@@ -44,6 +44,13 @@ export class FileService {
     let records: Record<string, any>[];
     let headerLength = 0; // variable to store the number of columns in the header
     try {
+      if (
+        !this.checkUnclosedQuotes(content, '"') ||
+        !this.checkUnclosedQuotes(content, "'")
+      ) {
+        return { success: false, message: 'Unclosed quote detected in file.' };
+      }
+
       const detectedDelimiter = content.includes(';') ? ';' : ',';
       const detectedQuote = content.includes('"') ? '"' : "'";
       records = csvParse.parse(content, {
@@ -98,5 +105,12 @@ export class FileService {
     }
 
     return { success: true, message: 'Valid File.' };
+  }
+  private checkUnclosedQuotes(
+    content: string,
+    quoteChar: string = '"',
+  ): boolean {
+    const matches = content.match(new RegExp(`\\${quoteChar}`, 'g')) || [];
+    return matches.length % 2 === 0;
   }
 }
