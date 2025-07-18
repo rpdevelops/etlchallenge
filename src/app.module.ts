@@ -13,7 +13,6 @@ import { RepositoryModule } from './repository/repository.module';
 @Module({
   imports: [
     ConfigModule.forRoot(),
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
     }),

@@ -12,64 +12,64 @@ export class FileService {
     message: string;
   } {
     if (!file) {
-      return { success: false, message: 'Nenhum arquivo enviado.' };
+      return { success: false, message: 'File not sent.' };
     }
 
-    // Verifica se está vazio
+    // verify if the file is empty
     if (!file.buffer || file.buffer.length === 0) {
-      return { success: false, message: 'Arquivo está vazio.' };
+      return { success: false, message: 'File is empty.' };
     }
 
-    // Tenta decodificar o conteúdo com os principais encodings
+    // try to decode the file with multiple encodings
     const encodings = ['utf-8', 'latin1', 'ascii'];
     let content: string | null = null;
 
     for (const encoding of encodings) {
       try {
         content = iconv.decode(file.buffer, encoding);
-        break; // Se decodificar com sucesso, sai do loop
+        break; // if successful, break the loop
       } catch {
-        content = null; // Continua tentando com o próximo encoding
+        content = null; // keep trying with the next encoding
       }
     }
 
     if (!content) {
       return {
         success: false,
-        message: 'Erro ao decodificar o arquivo. Encoding não suportado.',
+        message: 'Error decoding the file. Encoding not supported.',
       };
     }
 
-    // Lê o conteúdo como CSV
+    // read the CSV content
     let records: Record<string, any>[];
-    let headerLength = 0; // Variável para armazenar o número de colunas do header
+    let headerLength = 0; // variable to store the number of columns in the header
     try {
       records = csvParse.parse(content, {
         columns: (header) => {
           // Limpa colunas vazias no header
           const cleanedHeader = header.filter((col) => col.trim() !== '');
-          headerLength = cleanedHeader.length; // Armazena o número de colunas do header
+          headerLength = cleanedHeader.length; // store the number of columns
           return cleanedHeader;
         },
         skip_empty_lines: true,
-        delimiter: ';', // Define o delimitador como ponto e vírgula
+        delimiter: ';', // define the delimiter as semicolon
         on_record: (record) => {
-          // Limita o número de colunas das linhas subsequentes ao número de colunas do header
+          // limita the number of columns in each record to the header length
           const limitedRecord = Object.fromEntries(
             Object.entries(record).slice(0, headerLength),
           );
           return limitedRecord;
         },
-        relax_column_count: true, // Permite que as linhas tenham mais colunas que o header
+        relax_column_count: true, // allow to have more columns in the records than in the header
       });
     } catch (error) {
       return {
         success: false,
-        message: 'Erro ao ler o arquivo CSV.: ' + error,
+        message: 'Error to read the csv file.: ' + error,
       };
     }
 
-    // Verifica se há apenas os headers e nenhuma linha de dados
+    // verify if the file has only headers and no data
     if (
       records.length === 0 ||
       records.every((record) =>
@@ -78,7 +78,7 @@ export class FileService {
     ) {
       return {
         success: false,
-        message: 'O arquivo contém apenas os headers e nenhuma linha de dados.',
+        message: 'The file has only headers and no data.',
       };
     }
 
@@ -89,10 +89,10 @@ export class FileService {
     if (missingHeaders.length > 0) {
       return {
         success: false,
-        message: `Headers ausentes: ${missingHeaders.join(', ')}`,
+        message: `Missing headers: ${missingHeaders.join(', ')}`,
       };
     }
 
-    return { success: true, message: 'Arquivo válido.' };
+    return { success: true, message: 'Valid File.' };
   }
 }

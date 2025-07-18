@@ -10,6 +10,7 @@ import { TenantService } from '../repository/tenant/tenant.service';
 import { RentalContractService } from '../repository/rentalcontract/rentalcontract.service';
 import { RentalInvoiceService } from '../repository/rentalinvoice/rentalinvoice.service';
 import { LogsService } from '../repository/logs/logs.service';
+import * as process from 'process';
 
 @Injectable()
 export class SchedulerService {
@@ -34,7 +35,8 @@ export class SchedulerService {
 
   private async createLogApi(level: string, context: string, message: string) {
     try {
-      await fetch('https://etlchallenge-production.up.railway.app/api/logs', {
+      const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+      await fetch(`${baseUrl}/api/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ level, context, message }),
@@ -65,10 +67,10 @@ export class SchedulerService {
         { status: 'processing', startprocessing: new Date().toISOString() },
       );
 
-      // INÍCIO DA TRANSAÇÃO
+      // BEGIN OF TRANSACTION
       const trx = await this.facilityService.getTransaction();
       try {
-        // Download e parse do arquivo
+        // Download and parse of file
         const fileBuffer = await this.supabaseService.downloadFile(
           'importedcsv',
           migration.filename,
@@ -95,12 +97,12 @@ export class SchedulerService {
 
         const records = parseCsv(csvContent);
 
-        // Facilities e units
+        // Facilities and units
         const uniqueFacilities = Array.from(
           new Set(records.map((r) => r.facilityName)),
         );
         for (const facilityName of uniqueFacilities) {
-          // Passa a transação para o service!
+          // Pass the transaction to service!
           const facility = await this.facilityService.createIfNotExists(
             facilityName,
             trx
@@ -108,7 +110,7 @@ export class SchedulerService {
           const units = records.filter((r) => r.facilityName === facilityName);
           for (const [idx, unit] of units.entries()) {
             total++;
-            // Validação básica dos campos obrigatórios
+            // Basic validation of required fields
             const required = ['facilityName', 'unitNumber', 'unitSize', 'unitType'];
             let missing = required.filter(
               (key) => !unit[key] || String(unit[key]).trim() === '',
@@ -129,7 +131,7 @@ export class SchedulerService {
               erros++;
               continue;
             }
-            // Verifica duplicidade
+            // Verify duplicated unit
             const exists = await this.unitService.getUnitByFacilityAndNumber(
               facility,
               unit.unitNumber,
@@ -149,7 +151,7 @@ export class SchedulerService {
                 unitlength,
                 unitheight,
                 unittype: unit.unitType,
-              }, trx); // Passe a transação!
+              }, trx); // Pass the transaction!
               inseridas++;
               detalhes.push(`Line ${idx + 2}: Successfully processed.`);
             } catch (err) {
@@ -161,7 +163,7 @@ export class SchedulerService {
           }
         }
 
-        // Determina o status final conforme regras
+        // Define final status based on results
         let finalStatus = 'Success';
         if (erros > 0 && ignoradas > 0) {
           finalStatus = 'Processed With Ignored and Errors';
@@ -173,7 +175,7 @@ export class SchedulerService {
 
         await trx.commit();
 
-        // Atualiza status para o resultado final
+        // Update migration status to final
         await this.migrationsService.updateFieldsById(
           migration.migrationscontrolid,
           {
@@ -183,7 +185,7 @@ export class SchedulerService {
           },
         );
 
-        // Log detalhado
+        // Detailed logging
         this.logger.log(
           `UnitJob: ${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
         );
@@ -225,14 +227,14 @@ export class SchedulerService {
     for (const migration of migrations) {
       let total = 0, inseridas = 0, ignoradas = 0, erros = 0;
       const detalhes: string[] = [];
-      // Atualiza status para processing
+      // Update migration status to processing
       await this.migrationsService.updateFieldsById(migration.migrationscontrolid, {
         status: 'processing',
         startprocessing: new Date().toISOString(),
       });
 
       try {
-        // Download e parse do arquivo
+        // Download and parse of file
         const fileBuffer = await this.supabaseService.downloadFile('importedcsv', migration.filename);
         const encodings = ['utf-8', 'latin1', 'ascii'];
         let csvContent: string | null = null;
@@ -251,7 +253,7 @@ export class SchedulerService {
 
         for (const [idx, row] of records.entries()) {
           total++;
-          // Validação básica
+          // Basic validation of required fields
           const validation = validateRentRollRow(row);
           if (!validation.success) {
             detalhes.push(`Line ${idx + 2}: Erro of validation: ${validation.message}`);
@@ -259,10 +261,10 @@ export class SchedulerService {
             continue;
           }
 
-          // Transação por linha
+          // Transaction for each row
           const trx = await this.facilityService.getTransaction();
           try {
-            // 1. Buscar unitId pelo facilityName + unitNumber
+            // 1. Search UnitID by facilityName + unitNumber
             const facility = await trx('facility').where({ name: row.facilityName }).first();
             if (!facility) {
               detalhes.push(`Line ${idx + 2}: Facility  not found (${row.facilityName})`);
@@ -288,7 +290,7 @@ export class SchedulerService {
               phone: row.phone,
             }, trx);
 
-            // 3. Verificar duplicidade de rentalContract
+            // 3. Verificar duplicated rentalContract
             const existingContract = await this.rentalContractService.findExisting(
               unit.unitid,
               tenant,
@@ -302,7 +304,7 @@ export class SchedulerService {
               continue;
             }
 
-            // 4. Inserir rentalContract
+            // 4. Insert rentalContract
             const rentalContractId = await this.rentalContractService.createRentalContract({
               unit_unitid: unit.unitid,
               tenant_tenantid: tenant,
@@ -313,7 +315,7 @@ export class SchedulerService {
               currentamountowed: parseFloat(row.currentRentOwed),
             }, trx);
 
-            // 5. Inserir rentalInvoice
+            // 5. Insert rentalInvoice
             await this.rentalInvoiceService.createRentalInvoice({
               rentalcontract_rentalcontractid: rentalContractId,
               invoiceduedate: new Date(row.currentRentOwedDueDate),
@@ -321,7 +323,7 @@ export class SchedulerService {
               invoicebalance: parseFloat(row.currentRentOwed),
             }, trx);
 
-            // Atualizar o campo monthlyrent da unit
+            // Update the field monthlyrent from unit
             await this.unitService.updateUnit(
               unit.facility_facilityid,
               unit.number,
@@ -338,7 +340,7 @@ export class SchedulerService {
           }
         }
 
-        // Determina o status final conforme regras
+        // Define final status based on results
         let finalStatus = 'Success';
         if (erros > 0 && ignoradas > 0) {
           finalStatus = 'Processed With Ignored and Errors';
@@ -348,14 +350,14 @@ export class SchedulerService {
           finalStatus = 'Processed With Ignored';
         }
 
-        // Atualiza status para o resultado final
+        // Update migration status to final
         await this.migrationsService.updateFieldsById(migration.migrationscontrolid, {
           status: finalStatus,
           endprocessing: new Date().toISOString(),
           msg: `Processed: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
         });
 
-        // Log detalhado
+        // Detailed logging
         this.logger.log(`RentRollJob: ${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`);
         await this.createLogApi(
           'info',
@@ -383,7 +385,7 @@ export class SchedulerService {
   }
 }
 
-// Função de validação básica para cada linha do rentroll
+// Function to validate each row of the rent roll file
 function validateRentRollRow(row: any): { success: boolean; message?: string } {
   const required = [
     'facilityName', 'unitNumber', 'firstName', 'lastName', 'email',
@@ -395,7 +397,7 @@ function validateRentRollRow(row: any): { success: boolean; message?: string } {
       return { success: false, message: `Missing Required Field: ${key}` };
     }
   }
-  // Datas válidas
+  // Valid Dates
   if (isNaN(Date.parse(row.rentStartDate))) return { success: false, message: 'rentStartDate invalid' };
   if (row.rentEndDate && isNaN(Date.parse(row.rentEndDate))) return { success: false, message: 'rentEndDate invalid' };
   if (isNaN(Date.parse(row.currentRentOwedDueDate))) return { success: false, message: 'currentRentOwedDueDate invalid' };
@@ -404,7 +406,7 @@ function validateRentRollRow(row: any): { success: boolean; message?: string } {
   if (Number(row.currentRentOwed) < 0) return { success: false, message: 'currentRentOwed negative' };
   return { success: true };
 }
-// Função utilitária para parsear o unitSize
+// Function to parse unitSize from string
 function parseUnitSize(unitSize: string): [number, number, number] {
   const cleaned = unitSize
     .replace(/[^0-9xX., ]+/g, '')
@@ -418,7 +420,7 @@ function parseUnitSize(unitSize: string): [number, number, number] {
   if (!match) return [0, 0, 0];
   return [parseFloat(match[1]), parseFloat(match[2]), parseFloat(match[3])];
 }
-
+// Function to parse CSV content
 function parseCsv(content: string): Array<any> {
   try {
     return csvParse.parse(content, {

@@ -41,7 +41,7 @@ export class FileController {
 
     const cleanName = sanitizeFilename(file.originalname);
 
-    // Upload para o Supabase Storage
+    // Upload to supabase storage
     try {
       await this.supabaseService.uploadFile(
         'importedcsv',
@@ -55,7 +55,7 @@ export class FileController {
       );
     }
 
-    // Grava na tabela migrationsControl usando o service
+    // register in migrationsControl table
     try {
       await this.migrationsService.createMigrationControl({
         filename: cleanName,
@@ -94,7 +94,7 @@ export class FileController {
 
     const cleanName = sanitizeFilename(file.originalname);
 
-    // Upload para o Supabase Storage
+    // upload to supabase storage
     try {
       await this.supabaseService.uploadFile(
         'importedcsv',
@@ -108,7 +108,7 @@ export class FileController {
       );
     }
 
-    // Grava na tabela migrationsControl usando o service
+    // load in migrationsControl table
     try {
       await this.migrationsService.createMigrationControl({
         filename: cleanName,
