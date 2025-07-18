@@ -28,13 +28,25 @@ export class SchedulerService {
 
   @Cron('*/30 * * * * *')
   async handleJobs() {
-    await this.unitJob(); //Process unit migrations every 30 seconds
-    await this.rentRollJob(); // Process rent roll migrations every 30 seconds
+    await this.unitJob();
+    await this.rentRollJob();
+  }
+
+  private async createLogApi(level: string, context: string, message: string) {
+    try {
+      await fetch('http://localhost:3000/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level, context, message }),
+      });
+    } catch (err) {
+      this.logger.error(`Erro ao chamar API de logs: ${err?.message || err}`);
+    }
   }
 
   async unitJob() {
     this.logger.log(`UnitJob: Starting job to process unit migrations.`);
-    await this.logsService.createLog('info', 'UnitJob', 'Starting job to process unit migrations.');
+    await this.createLogApi('info', 'UnitJob', 'Starting job to process unit migrations.');
 
     const migrations = await this.migrationsService.findByStatusAndFiletype(
       'new',
@@ -42,7 +54,7 @@ export class SchedulerService {
     );
     if (migrations.length === 0) {
       this.logger.log('UnitJob: No new unit migrations found.');
-      await this.logsService.createLog('info', 'UnitJob', 'No new unit migrations found.');
+      await this.createLogApi('info', 'UnitJob', 'No new unit migrations found.');
       return;
     }
     for (const migration of migrations) {
@@ -77,7 +89,7 @@ export class SchedulerService {
           this.logger.error(
             `UnitJob: Failed to decode file ${migration.filename} with all encodings.`,
           );
-          await this.logsService.createLog('error', 'UnitJob', `Failed to decode file ${migration.filename} with all encodings.`);
+          await this.createLogApi('error', 'UnitJob', `Failed to decode file ${migration.filename} with all encodings.`);
           throw new Error('Error to decode file. Not supported encoding.');
         }
 
@@ -175,22 +187,22 @@ export class SchedulerService {
         this.logger.log(
           `UnitJob: ${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
         );
-        await this.logsService.createLog(
+        await this.createLogApi(
           'info',
           'UnitJob',
           `${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
         );
 
-        detalhes.forEach(async (msg) => {
+        for (const msg of detalhes) {
           this.logger.log(msg);
-          await this.logsService.createLog('info', 'UnitJob', msg);
-        });
+          await this.createLogApi('info', 'UnitJob', msg);
+        }
       } catch (err) {
         await trx.rollback();
         this.logger.error(
           `UnitJob: Error processing file ${migration.filename}: ${err}`,
         );
-        await this.logsService.createLog(
+        await this.createLogApi(
           'error',
           'UnitJob',
           `Error processing file ${migration.filename}: ${err}`,
@@ -198,179 +210,177 @@ export class SchedulerService {
       }
     }
   }
+
   async rentRollJob() {
-  this.logger.log('RentRollJob: Starting the Rent Roll Migration Process.');
-  await this.logsService.createLog('info', 'RentRollJob', 'Starting the Rent Roll Migration Process.');
+    this.logger.log('RentRollJob: Starting the Rent Roll Migration Process.');
+    await this.createLogApi('info', 'RentRollJob', 'Starting the Rent Roll Migration Process.');
 
-  const migrations = await this.migrationsService.findByStatusAndFiletype('new', 'rentRoll');
-  if (migrations.length === 0) {
-    this.logger.log('RentRollJob: No new rentRoll migrations found.');
-    await this.logsService.createLog('info', 'RentRollJob', 'No new rentRoll migrations found.');
-    return;
-  }
+    const migrations = await this.migrationsService.findByStatusAndFiletype('new', 'rentRoll');
+    if (migrations.length === 0) {
+      this.logger.log('RentRollJob: No new rentRoll migrations found.');
+      await this.createLogApi('info', 'RentRollJob', 'No new rentRoll migrations found.');
+      return;
+    }
 
-  for (const migration of migrations) {
-    let total = 0, inseridas = 0, ignoradas = 0, erros = 0;
-    const detalhes: string[] = [];
-    // Atualiza status para processing
-    await this.migrationsService.updateFieldsById(migration.migrationscontrolid, {
-      status: 'processing',
-      startprocessing: new Date().toISOString(),
-    });
-
-    try {
-      // Download e parse do arquivo
-      const fileBuffer = await this.supabaseService.downloadFile('importedcsv', migration.filename);
-      const encodings = ['utf-8', 'latin1', 'ascii'];
-      let csvContent: string | null = null;
-      const arrayBuffer = await fileBuffer.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      for (const encoding of encodings) {
-        try {
-          csvContent = iconv.decode(buffer, encoding);
-          break;
-        } catch {
-          csvContent = null;
-        }
-      }
-      if (!csvContent) throw new Error('Error to decode file. Not supported encoding.');
-      const records = parseCsv(csvContent);
-
-      for (const [idx, row] of records.entries()) {
-        total++;
-        // Validação básica
-        const validation = validateRentRollRow(row);
-        if (!validation.success) {
-          detalhes.push(`Line ${idx + 2}: Erro of validation: ${validation.message}`);
-          erros++;
-          continue;
-        }
-
-        // Transação por linha
-        const trx = await this.facilityService.getTransaction();
-        try {
-          // 1. Buscar unitId pelo facilityName + unitNumber
-          const facility = await trx('facility').where({ name: row.facilityName }).first();
-          if (!facility) {
-            detalhes.push(`Line ${idx + 2}: Facility  not found (${row.facilityName})`);
-            ignoradas++;
-            await trx.rollback();
-            continue;
-          }
-          const unit = await trx('unit')
-            .where({ facility_facilityid: facility.facilityid, number: row.unitNumber })
-            .first();
-          if (!unit) {
-            detalhes.push(`Line ${idx + 2}: Unit not found (${row.unitNumber})`);
-            ignoradas++;
-            await trx.rollback();
-            continue;
-          }
-
-          // 2. Upsert tenant (firstName + lastName + email)
-          const tenant = await this.tenantService.upsertTenant({
-            firstname: row.firstName,
-            lastname: row.lastName,
-            email: row.email,
-            phone: row.phone,
-          }, trx);
-            // Supondo que tenant é o objeto retornado do banco
-            
-            console.log('Tenant ID:', tenant);
-          // 3. Verificar duplicidade de rentalContract
-          const existingContract = await this.rentalContractService.findExisting(
-            unit.unitid,
-            tenant,
-            new Date(row.rentStartDate),
-            trx,
-          );
-          if (existingContract) {
-            detalhes.push(`Line ${idx + 2}: Duplicated Contract Ignored.`);
-            ignoradas++;
-            await trx.rollback();
-            continue;
-          }
-
-          // 4. Inserir rentalContract
-          const rentalContractId = await this.rentalContractService.createRentalContract({
-            unit_unitid: unit.unitid,
-            tenant_tenantid: tenant, // garanta que é só o id numérico
-            startdate: new Date(row.rentStartDate),
-            enddate: row.rentEndDate && String(row.rentEndDate).trim() !== ''
-              ? new Date(row.rentEndDate)
-              : null,
-            currentamountowed: parseFloat(row.currentRentOwed),
-          }, trx);
-
-          // 5. Inserir rentalInvoice
-          await this.rentalInvoiceService.createRentalInvoice({
-            rentalcontract_rentalcontractid: rentalContractId,
-            invoiceduedate: new Date(row.currentRentOwedDueDate),
-            invoiceamount: parseFloat(row.monthlyRent),
-            invoicebalance: parseFloat(row.currentRentOwed),
-          }, trx);
-
-          // Atualizar o campo monthlyrent da unit
-          await this.unitService.updateUnit(
-            unit.facility_facilityid,
-            unit.number,
-            { monthlyrent: parseFloat(row.monthlyRent) }
-          );
-
-          await trx.commit();
-          inseridas++;
-          detalhes.push(`Line ${idx + 2}: Successfuly processed.`);
-        } catch (err) {
-          await trx.rollback();
-          detalhes.push(`Line ${idx + 2}: Error: ${err.message || err}`);
-          erros++;
-        }
-      }
-
-      // Determina o status final conforme regras
-      let finalStatus = 'Success';
-      if (erros > 0 && ignoradas > 0) {
-        finalStatus = 'Processed With Ignored and Errors';
-      } else if (erros > 0) {
-        finalStatus = 'Processed With Errors';
-      } else if (ignoradas > 0) {
-        finalStatus = 'Processed With Ignored';
-      }
-
-      // Atualiza status para o resultado final
+    for (const migration of migrations) {
+      let total = 0, inseridas = 0, ignoradas = 0, erros = 0;
+      const detalhes: string[] = [];
+      // Atualiza status para processing
       await this.migrationsService.updateFieldsById(migration.migrationscontrolid, {
-        status: finalStatus,
-        endprocessing: new Date().toISOString(),
-        msg: `Processed: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
+        status: 'processing',
+        startprocessing: new Date().toISOString(),
       });
 
-      // Log detalhado
-      this.logger.log(`RentRollJob: ${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`);
-      await this.logsService.createLog(
-        'info',
-        'RentRollJob',
-        `${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
-      );
+      try {
+        // Download e parse do arquivo
+        const fileBuffer = await this.supabaseService.downloadFile('importedcsv', migration.filename);
+        const encodings = ['utf-8', 'latin1', 'ascii'];
+        let csvContent: string | null = null;
+        const arrayBuffer = await fileBuffer.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        for (const encoding of encodings) {
+          try {
+            csvContent = iconv.decode(buffer, encoding);
+            break;
+          } catch {
+            csvContent = null;
+          }
+        }
+        if (!csvContent) throw new Error('Error to decode file. Not supported encoding.');
+        const records = parseCsv(csvContent);
 
-      detalhes.forEach(async (msg) => {
-        this.logger.log(msg);
-        await this.logsService.createLog('info', 'RentRollJob', msg);
-      });
-    } catch (err) {
-      await this.migrationsService.updateFieldsById(migration.migrationscontrolid, {
-        status: 'error',
-        msg: String(err),
-      });
-      this.logger.error(`RentRollJob: Error to process ${migration.filename}: ${err}`);
-      await this.logsService.createLog(
-        'error',
-        'RentRollJob',
-        `Error to process ${migration.filename}: ${err}`,
-      );
+        for (const [idx, row] of records.entries()) {
+          total++;
+          // Validação básica
+          const validation = validateRentRollRow(row);
+          if (!validation.success) {
+            detalhes.push(`Line ${idx + 2}: Erro of validation: ${validation.message}`);
+            erros++;
+            continue;
+          }
+
+          // Transação por linha
+          const trx = await this.facilityService.getTransaction();
+          try {
+            // 1. Buscar unitId pelo facilityName + unitNumber
+            const facility = await trx('facility').where({ name: row.facilityName }).first();
+            if (!facility) {
+              detalhes.push(`Line ${idx + 2}: Facility  not found (${row.facilityName})`);
+              ignoradas++;
+              await trx.rollback();
+              continue;
+            }
+            const unit = await trx('unit')
+              .where({ facility_facilityid: facility.facilityid, number: row.unitNumber })
+              .first();
+            if (!unit) {
+              detalhes.push(`Line ${idx + 2}: Unit not found (${row.unitNumber})`);
+              ignoradas++;
+              await trx.rollback();
+              continue;
+            }
+
+            // 2. Upsert tenant (firstName + lastName + email)
+            const tenant = await this.tenantService.upsertTenant({
+              firstname: row.firstName,
+              lastname: row.lastName,
+              email: row.email,
+              phone: row.phone,
+            }, trx);
+
+            // 3. Verificar duplicidade de rentalContract
+            const existingContract = await this.rentalContractService.findExisting(
+              unit.unitid,
+              tenant,
+              new Date(row.rentStartDate),
+              trx,
+            );
+            if (existingContract) {
+              detalhes.push(`Line ${idx + 2}: Duplicated Contract Ignored.`);
+              ignoradas++;
+              await trx.rollback();
+              continue;
+            }
+
+            // 4. Inserir rentalContract
+            const rentalContractId = await this.rentalContractService.createRentalContract({
+              unit_unitid: unit.unitid,
+              tenant_tenantid: tenant,
+              startdate: new Date(row.rentStartDate),
+              enddate: row.rentEndDate && String(row.rentEndDate).trim() !== ''
+                ? new Date(row.rentEndDate)
+                : null,
+              currentamountowed: parseFloat(row.currentRentOwed),
+            }, trx);
+
+            // 5. Inserir rentalInvoice
+            await this.rentalInvoiceService.createRentalInvoice({
+              rentalcontract_rentalcontractid: rentalContractId,
+              invoiceduedate: new Date(row.currentRentOwedDueDate),
+              invoiceamount: parseFloat(row.monthlyRent),
+              invoicebalance: parseFloat(row.currentRentOwed),
+            }, trx);
+
+            // Atualizar o campo monthlyrent da unit
+            await this.unitService.updateUnit(
+              unit.facility_facilityid,
+              unit.number,
+              { monthlyrent: parseFloat(row.monthlyRent) }
+            );
+
+            await trx.commit();
+            inseridas++;
+            detalhes.push(`Line ${idx + 2}: Successfuly processed.`);
+          } catch (err) {
+            await trx.rollback();
+            detalhes.push(`Line ${idx + 2}: Error: ${err.message || err}`);
+            erros++;
+          }
+        }
+
+        // Determina o status final conforme regras
+        let finalStatus = 'Success';
+        if (erros > 0 && ignoradas > 0) {
+          finalStatus = 'Processed With Ignored and Errors';
+        } else if (erros > 0) {
+          finalStatus = 'Processed With Errors';
+        } else if (ignoradas > 0) {
+          finalStatus = 'Processed With Ignored';
+        }
+
+        // Atualiza status para o resultado final
+        await this.migrationsService.updateFieldsById(migration.migrationscontrolid, {
+          status: finalStatus,
+          endprocessing: new Date().toISOString(),
+          msg: `Processed: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
+        });
+
+        // Log detalhado
+        this.logger.log(`RentRollJob: ${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`);
+        await this.createLogApi(
+          'info',
+          'RentRollJob',
+          `${migration.filename} - Total: ${total}, Inserted: ${inseridas}, Ignored: ${ignoradas}, Errors: ${erros}`,
+        );
+
+        for (const msg of detalhes) {
+          this.logger.log(msg);
+          await this.createLogApi('info', 'RentRollJob', msg);
+        }
+      } catch (err) {
+        await this.migrationsService.updateFieldsById(migration.migrationscontrolid, {
+          status: 'error',
+          msg: String(err),
+        });
+        this.logger.error(`RentRollJob: Error to process ${migration.filename}: ${err}`);
+        await this.createLogApi(
+          'error',
+          'RentRollJob',
+          `Error to process ${migration.filename}: ${err}`,
+        );
+      }
     }
   }
-}
-
 }
 
 // Função de validação básica para cada linha do rentroll

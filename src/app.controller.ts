@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { AppService } from './app.service';
 import { MigrationsService } from './repository/migrations/migrations.service';
 import { LogsService } from './repository/logs/logs.service';
@@ -48,5 +48,14 @@ export class AppController {
       context,
       hours: hours ? Number(hours) : undefined,
     });
+  }
+
+  @Post('/api/logs')
+  async createLog(
+    @Body() body: { level: string; context: string; message: string }
+  ) {
+    const { level, context, message } = body;
+    await this.logsService.createLog(level, context, message);
+    return { success: true };
   }
 }
